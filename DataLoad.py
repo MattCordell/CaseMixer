@@ -49,7 +49,6 @@ cummulativeProportion = 0
 for line in file:
     ageGroup,proportion = line.split('\t')
     cummulativeProportion = cummulativeProportion + float(proportion)
-    print(cummulativeProportion)
     cursor.execute("insert into AgeDistribution values (?,?)",(ageGroup,cummulativeProportion))
 file.close()
 db.commit()
@@ -63,6 +62,9 @@ for line in file:
     ageGroup,proportion = line.split('\t')
     cursor.execute("insert into ProportionOfMalesForAge values (?,?)",(ageGroup,float(proportion)))
 file.close()
+db.commit()
+
+cursor.executescript(indexScript)
 db.commit()
 
 db.close()

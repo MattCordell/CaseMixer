@@ -5,11 +5,17 @@ import sqlite3
 import uuid
 import datetime
 
+#risk determines likelihood of an age specific disorder.
+#peak is used to alter risk by age... kinda
+neonateRisk = 0.85
+#No infantRisk
+childRisk = 0.5
 youthRisk = 0.27
 youthPeak = 21
-agedRisk = 0.3
-agedPeak = 65
-
+middleAgedRisk = 0.6
+agedRisk = 0.34
+agedPeak = 83
+MostRecentEpisodeDate = datetime.datetime.now() #current date
 
 #modify the generic risk rate relative to age
 def ageRelatedRisk(age,riskFactor,peakRiskAge):
@@ -39,10 +45,10 @@ def get_age(group):
 
     if group == 'Neonate':
         x = random.randint(0, 3)
-        return x/12/4
+        return round(x/12/4,2)
     if group == "Infant":
         x = random.randint(1, 23)
-        return x/24
+        return round(x/24,2)
     if group == "2-4":
         return random.randint(2, 4)
     elif group == '5-9':
@@ -96,19 +102,106 @@ def get_sex(ageGroup):
         return 'M'
     else: return 'F'
 
+#generate a random date between MostRecentEpisodeDate and 100years prior.
+#provides a random date for the episode. Which may/maynot be useful
 def get_episodeDate():
-    lastYear = datetime.now-1
-    epochYear = lastYear-100
-    print('start',epochYear)
-    print('end',lastYear)
+    epochYear = MostRecentEpisodeDate.year-100
+    epochDate = datetime.date(epochYear,MostRecentEpisodeDate.month,MostRecentEpisodeDate.day)
+
+    randomDate = ptime = epochDate + random.random() * (MostRecentEpisodeDate.date() - epochDate)
+
+    return randomDate
+
+def get_Problem(age,sex):
+    notSex = 'X'
+    if sex == 'M':
+        notSex = 'Females%'
+    else:
+        notSex = 'Males%'
+
+    db = sqlite3.connect('CaseMixer.db')
+    cursor = db.cursor()
+
+    EpisodeRiskValue = random.random()
 
 
-for x in range(0, 5):
+    #determine age level. First attempt an AgeRisk, else set NotFilter variable for default query.
+    if age < 1/12:
+        if EpisodeRiskValue < neonateRisk:
+            q = '''select disorderSCTID from DisorderFilters
+            where disorderSCTID not in (select disorderSCTID from DisorderFilters where filter like ?)
+            and filter like 'Neonates%'
+            order by RANDOM() LIMIT 1;'''
+            cursor.execute(q,(notSex,))
+            return cursor.fetchone()[0]
+        NotFilter = 'NotNeonateProblems'
+    elif age < 2:
+        NotFilter = 'NotInfantProblems'
+    elif age < 11:
+        if EpisodeRiskValue < childRisk:
+            q = '''select disorderSCTID from DisorderFilters
+            where disorderSCTID not in (select disorderSCTID from DisorderFilters where filter like ?)
+            and filter like 'Children%'
+            order by RANDOM() LIMIT 1;'''
+            cursor.execute(q,(notSex,))
+            return cursor.fetchone()[0]
+        NotFilter = 'NotChildrenProblems'
+    elif age < 24:
+        if EpisodeRiskValue < ageRelatedRisk(age,youthRisk,youthPeak):
+            q = '''select disorderSCTID from DisorderFilters
+            where disorderSCTID not in (select disorderSCTID from DisorderFilters where filter like ?)
+            and filter like 'YouthRisks%'
+            order by RANDOM() LIMIT 1;'''
+            cursor.execute(q,(notSex,))
+            return cursor.fetchone()[0]
+        NotFilter = 'NotYouthProblems'
+    elif age < 65:
+        if EpisodeRiskValue < middleAgedRisk:
+            q = '''select disorderSCTID from DisorderFilters
+            where disorderSCTID not in (select disorderSCTID from DisorderFilters where filter like ?)
+            and filter like 'MiddleAgedAdults%'
+            order by RANDOM() LIMIT 1;'''
+            cursor.execute(q,(notSex,))
+            return cursor.fetchone()[0]
+        NotFilter = 'NotMiddleAgedProblems'
+    else:
+        if EpisodeRiskValue < ageRelatedRisk(age,agedRisk,agedPeak):
+            q = '''select disorderSCTID from DisorderFilters
+            where disorderSCTID not in (select disorderSCTID from DisorderFilters where filter like ?)
+            and filter like 'Seniors%'
+            order by RANDOM() LIMIT 1;'''
+            cursor.execute(q,(notSex,))
+            return cursor.fetchone()[0]
+        NotFilter = 'NotSeniorsProblems'
+
+    q = '''select rowid from CandidateProblemList
+        where disorderSCTID not in (select * from '''+ NotFilter + ''')
+        and disorderSCTID not in (select disorderSCTID from DisorderFilters where filter like ?)
+        and rowid >= (abs(random()) % (SELECT max(rowid) FROM CandidateProblemList))
+        LIMIT 1; '''
+
+    cursor.execute(q,(notSex,))
+    return cursor.fetchone()[0]
+
+
+f = open('GeneratedDataSet.txt', 'a')
+for x in range(0, 1000):
+    #look at some sort of progress bar
+    #print("Writing " + str(x+1) +"/"+str(5))
+
+
     ageGroup = get_ageGroup()
     age = get_age(ageGroup)
     sex = get_sex(ageGroup)
-    get_episodeDate()
+    problem = get_Problem(19,'M')
+    episodeDate = get_episodeDate()
 
-    print(uuid.uuid4(),sex,age)
+    x = episodeDate.strftime('%Y-%m-%d')+'\t'+sex+'\t'+str(age)+'\t'+str(problem)+'\n'
+    f.writelines(x)
+    #print(x)
+
+f.close()
+    #an episode with a UUID. Not used by default for case consideration.
+    #print(uuid.uuid4(),sex,age,problem,episodeDate)
 
 
