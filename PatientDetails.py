@@ -4,6 +4,7 @@ import random
 import sqlite3
 import uuid
 import datetime
+import time
 
 #risk determines likelihood of an age specific disorder.
 #peak is used to alter risk by age... kinda
@@ -184,24 +185,47 @@ def get_Problem(age,sex):
     return cursor.fetchone()[0]
 
 
-f = open('GeneratedDataSet.txt', 'a')
-for x in range(0, 1000):
+print('start')
+s = datetime.datetime.now()
+f = open('TestDataSet.txt', 'a')
+
     #look at some sort of progress bar
     #print("Writing " + str(x+1) +"/"+str(5))
 
-
+for x in range(0, 10):
     ageGroup = get_ageGroup()
     age = get_age(ageGroup)
     sex = get_sex(ageGroup)
-    problem = get_Problem(19,'M')
+    problem = get_Problem(age,sex)
     episodeDate = get_episodeDate()
 
     x = episodeDate.strftime('%Y-%m-%d')+'\t'+sex+'\t'+str(age)+'\t'+str(problem)+'\n'
     f.writelines(x)
     #print(x)
 
+
 f.close()
     #an episode with a UUID. Not used by default for case consideration.
     #print(uuid.uuid4(),sex,age,problem,episodeDate)
 
+f = datetime.datetime.now()
 
+timeTaken = f-s
+print(timeTaken)
+print('finish')
+
+#initial run 7.5 seconds for 100 records. 250k in about 6 hours.
+#1h7m n= 40000
+#100 run baseline
+#a=9.743,10.535,10.929  w=10.468,10.383,10.612805
+#just calculating. No writing
+#10.53,10.75,10.533
+#just writing
+#0.096,0.1360.106
+#1000 run, just writing 0.174
+#10,000 = 0.87
+#50,000 = 3.58
+#100,000 = 6.625
+#1,000,000 = 1m14s
+#100,000 1Mb buff 6.9s
+#100k 15Mb buff
